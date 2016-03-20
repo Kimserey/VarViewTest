@@ -47,6 +47,7 @@
     <None Include="Book_Sample_v2.fsx" />
     <None Include="Build.cmd" />
     <None Include="index.html" />
+    <None Include="SimpleTodo_WithListModel.fsx" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

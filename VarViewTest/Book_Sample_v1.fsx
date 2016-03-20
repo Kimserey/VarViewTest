@@ -18,19 +18,26 @@ module Model =
     type Book = {
         Title: string
         Pages: Page list
-    } with
-        static member Render (book: Book) =
-            div [ text ("title: " + book.Title); br []
-                  text "pages: "
-                  book.Pages
-                  |> List.map Page.Render 
-                  |> Seq.cast 
-                  |> Doc.Concat ]
-
+    }
     and Page = {
         Number: int
         Content: string
-    } with
+    }
+
+    type ReactiveBook = {
+        Title: Var<string>
+        Pages: Var<ReactivePage list>
+    }
+    and ReactivePage = {
+        Number: Var<int>
+        Content: Var<string>
+    }    
+
+[<JavaScript>]
+module Render =
+    open Model
+    
+    type Page with
         static member Render (page: Page) =
             let textDash =
                 spanAttr [ attr.style "margin-left: 1em;" ] [ text "-" ]
@@ -41,10 +48,26 @@ module Model =
                   text ("number: " +  string page.Number); br []
                   text ("content: " + page.Content) ]
 
-    type ReactiveBook = {
-        Title: Var<string>
-        Pages: Var<ReactivePage list>
-    } with
+    type Book with
+        static member Render (book: Book) =
+            div [ text ("title: " + book.Title); br []
+                  text "pages: "
+                  book.Pages
+                  |> List.map Page.Render 
+                  |> Seq.cast 
+                  |> Doc.Concat ]
+
+[<JavaScript>]
+module Views =
+    open Model
+    
+    type ReactivePage with
+        static member View page: View<Page> =
+            View.Const (fun n c -> { Number = n; Content = c })
+            <*> page.Number.View
+            <*> page.Content.View
+
+    type ReactiveBook with
         static member View book: View<Book> =
             View.Const (fun t p -> { Title = t; Pages = p |> Seq.toList })
             <*> book.Title.View
@@ -55,15 +78,6 @@ module Model =
                         |> View.Sequence) 
                  |> View.Join)
 
-    and ReactivePage = {
-        Number: Var<int>
-        Content: Var<string>
-    } with
-        static member View page: View<Page> =
-            View.Const (fun n c -> { Number = n; Content = c })
-            <*> page.Number.View
-            <*> page.Content.View           
-
 [<JavaScript>]
 module Builder =
     open Model
@@ -73,7 +87,7 @@ module Builder =
             divAttr [ attr.``class`` "well" ]
                     [ divAttr [ attr.``class`` "form-group" ]
                               [ label [ text "Number" ]
-                                Doc.IntInputUnchecked [ attr.``class`` "form-control" ] rv.Number ]
+                                Doc.IntInputUnchecked [ attr.``class`` "form-control"; attr.disabled "true" ] rv.Number ]
                       
                       divAttr [ attr.``class`` "form-group" ]
                               [ label [ text "Content" ]
@@ -88,8 +102,8 @@ module Builder =
                     
                       divAttr [ attr.``class`` "form-group" ] 
                               [ label [ text "Elements" ]
-                                Doc.Button "-" [ attr.``class`` "btn btn-default" ] (fun () -> if rv.Pages.Value.Length >= 0 then Var.Set rv.Pages (rv.Pages.Value |> List.take (rv.Pages.Value.Length - 1)))
-                                Doc.Button "+" [ attr.``class`` "btn btn-default" ] (fun () -> Var.Set rv.Pages (rv.Pages.Value @ [ { Number = Var.Create 0; Content = Var.Create "" } ])) 
+                                Doc.Button "-" [ attr.``class`` "btn btn-default" ] (fun () -> if rv.Pages.Value.Length > 0 then Var.Set rv.Pages (rv.Pages.Value |> List.take (rv.Pages.Value.Length - 1)))
+                                Doc.Button "+" [ attr.``class`` "btn btn-default" ] (fun () -> Var.Set rv.Pages (rv.Pages.Value @ [ { Number = Var.Create rv.Pages.Value.Length; Content = Var.Create "" } ])) 
                                 
                                 rv.Pages.View
                                 |> Doc.BindView (List.map ReactivePage.RenderBuilder >> Doc.Concat) ] ]
@@ -97,6 +111,8 @@ module Builder =
 [<JavaScript>]
 module Client =
     open Model
+    open Views
+    open Render
     open Builder
 
     let main() =

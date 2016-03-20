@@ -45,6 +45,8 @@
   <ItemGroup>
     <None Include="Book_Sample_v1.fsx" />
     <None Include="Book_Sample_v2.fsx" />
+    <None Include="Build.cmd" />
+    <None Include="index.html" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -31,3 +31,6 @@ _ReSharper*/
 #paket & packages
 packages/*
 .paket/paket.exe
+
+#websharper script files
+VarViewTest/Scripts/*

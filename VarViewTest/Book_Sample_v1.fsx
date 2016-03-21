@@ -22,6 +22,11 @@ module Model =
     and Page = {
         Number: int
         Content: string
+        Comments: Comment list
+    }
+    and Comment = {
+        Number: int
+        Content: string
     }
 
     type ReactiveBook = {
@@ -31,12 +36,28 @@ module Model =
     and ReactivePage = {
         Number: Var<int>
         Content: Var<string>
-    }    
+        Comments: Var<ReactiveComment list>
+    }
+    and ReactiveComment = {
+        Number: Var<int>
+        Content: Var<string>
+    }
 
 [<JavaScript>]
 module Render =
     open Model
     
+    type Comment with
+        static member Render (comment: Comment) =
+            let textDash =
+                spanAttr [ attr.style "margin-left: 3em;" ] [ text "-" ]
+            let text txt =
+                spanAttr [ attr.style "margin-left: 4em;" ] [ text txt ]
+
+            div [ textDash; br []
+                  text ("number: " +  string comment.Number); br []
+                  text ("content: " + comment.Content) ]
+
     type Page with
         static member Render (page: Page) =
             let textDash =
@@ -46,7 +67,13 @@ module Render =
 
             div [ textDash; br []
                   text ("number: " +  string page.Number); br []
-                  text ("content: " + page.Content) ]
+                  text ("content: " + page.Content); br []
+                  text ("comment:"); br []
+                  div [  page.Comments 
+                         |> List.map Comment.Render
+                         |> Seq.cast
+                         |> Doc.Concat ]
+                   ]
 
     type Book with
         static member Render (book: Book) =
@@ -61,15 +88,34 @@ module Render =
 module Views =
     open Model
     
+    type ReactiveComment with
+        static member View comment: View<Comment> =
+            View.Const (fun n c -> 
+                { Number = n
+                  Content = c })
+            <*> comment.Number.View
+            <*> comment.Content.View
+
     type ReactivePage with
-        static member View page: View<Page> =
-            View.Const (fun n c -> { Number = n; Content = c })
+        static member View (page: ReactivePage): View<Page> =
+            View.Const (fun n c com-> 
+                { Number = n
+                  Content = c
+                  Comments = com |> Seq.toList })
             <*> page.Number.View
             <*> page.Content.View
+            <*> (page.Comments.View
+                 |> View.Map (fun comments -> 
+                        comments 
+                        |> List.map ReactiveComment.View 
+                        |> View.Sequence) 
+                 |> View.Join)
 
     type ReactiveBook with
         static member View book: View<Book> =
-            View.Const (fun t p -> { Title = t; Pages = p |> Seq.toList })
+            View.Const (fun t p -> 
+                { Title = t
+                  Pages = p |> Seq.toList })
             <*> book.Title.View
             <*> (book.Pages.View 
                  |> View.Map (fun pages -> 
@@ -82,6 +128,17 @@ module Views =
 module Builder =
     open Model
 
+    type ReactiveComment with
+        static member RenderBuilder (rv: ReactiveComment) =
+            divAttr [ attr.``class`` "well" ]
+                    [ divAttr [ attr.``class`` "form-group" ]
+                              [ label [ text "Number" ]
+                                Doc.IntInputUnchecked [ attr.``class`` "form-control"; attr.disabled "true" ] rv.Number ]
+                      
+                      divAttr [ attr.``class`` "form-group" ]
+                              [ label [ text "Content" ]
+                                Doc.Input [ attr.``class`` "form-control" ] rv.Content ] ] :> Doc
+
     type ReactivePage with
         static member RenderBuilder (rv: ReactivePage) =
             divAttr [ attr.``class`` "well" ]
@@ -91,7 +148,15 @@ module Builder =
                       
                       divAttr [ attr.``class`` "form-group" ]
                               [ label [ text "Content" ]
-                                Doc.Input [ attr.``class`` "form-control" ] rv.Content ] ] :> Doc
+                                Doc.Input [ attr.``class`` "form-control" ] rv.Content ]
+                                
+                      divAttr [ attr.``class`` "form-group" ] 
+                              [ label [ text "Comments" ]
+                                Doc.Button "-" [ attr.``class`` "btn btn-default" ] (fun () -> if rv.Comments.Value.Length > 0 then Var.Set rv.Comments (rv.Comments.Value |> List.take (rv.Comments.Value.Length - 1)))
+                                Doc.Button "+" [ attr.``class`` "btn btn-default" ] (fun () -> Var.Set rv.Comments (rv.Comments.Value @ [ { Number = Var.Create rv.Comments.Value.Length; Content = Var.Create "" } ])) 
+                                
+                                rv.Comments.View
+                                |> Doc.BindView (List.map ReactiveComment.RenderBuilder >> Doc.Concat) ] ] :> Doc
     
     type ReactiveBook with
         static member RenderBuilder (rv: ReactiveBook) =
@@ -101,9 +166,9 @@ module Builder =
                                 Doc.Input [ attr.``class`` "form-control" ] rv.Title ]
                     
                       divAttr [ attr.``class`` "form-group" ] 
-                              [ label [ text "Elements" ]
+                              [ label [ text "Pages" ]
                                 Doc.Button "-" [ attr.``class`` "btn btn-default" ] (fun () -> if rv.Pages.Value.Length > 0 then Var.Set rv.Pages (rv.Pages.Value |> List.take (rv.Pages.Value.Length - 1)))
-                                Doc.Button "+" [ attr.``class`` "btn btn-default" ] (fun () -> Var.Set rv.Pages (rv.Pages.Value @ [ { Number = Var.Create rv.Pages.Value.Length; Content = Var.Create "" } ])) 
+                                Doc.Button "+" [ attr.``class`` "btn btn-default" ] (fun () -> Var.Set rv.Pages (rv.Pages.Value @ [ { Number = Var.Create rv.Pages.Value.Length; Content = Var.Create ""; Comments = Var.Create [] } ])) 
                                 
                                 rv.Pages.View
                                 |> Doc.BindView (List.map ReactivePage.RenderBuilder >> Doc.Concat) ] ]
@@ -116,7 +181,11 @@ module Client =
     open Builder
 
     let main() =
-        let rvBook = { Title = Var.Create "New book"; Pages = Var.Create [ { Number = Var.Create 0; Content = Var.Create "A new page." } ] }
+        let rvBook = 
+            { Title = Var.Create "New book"
+              Pages = Var.Create [ { Number = Var.Create 0
+                                     Content = Var.Create "A new page."
+                                     Comments = Var.Create [] } ] }
         
         let container content =
             divAttr [ attr.style "position:fixed; height: 85%; width: 48%; top: 10%; overflow-y: scroll;"

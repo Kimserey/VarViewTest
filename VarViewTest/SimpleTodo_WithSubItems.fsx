@@ -36,7 +36,8 @@ module Client =
                 (fun t -> t.Items 
                           |> List.tryFind (fun i -> i.Key = itemKey)
                           |> Option.map (fun i -> i.Text)) 
-                (fun t i -> t.Items |> List.tryFind (fun i -> i.Key = itemKey)
+                (fun t i -> match t.Items |> List.tryFind (fun i -> i.Key = itemKey), i with
+                            | Some item, Some txt -> 
                             |> Option. |> Option.map (fun i -> i.)
 
         let newContent = Var.Create ""

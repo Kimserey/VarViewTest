@@ -44,7 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Book_Sample_v1.fsx" />
-    <None Include="Book_Sample_v2.fsx" />
+    <None Include="Book_Sample_v2_Lens.fsx" />
     <None Include="Build.cmd" />
     <None Include="SimpleTodo_WithSubItems.fsx" />
     <None Include="index.html" />

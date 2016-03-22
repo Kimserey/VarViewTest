@@ -127,7 +127,7 @@ module Builder =
                                  |> Page.LensComment c.Number 
                                  |> Comment.LensContent) ] ] :> Doc
 
-    let buildPage book (p: Page) =   
+    let buildPage trigger book (p: Page) =   
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ] 
                             [ label [ text "Number" ]
@@ -151,9 +151,10 @@ module Builder =
                                
                             (Book.LensPage p.Number book
                              |> Page.LensComments).View
+                            |> View.SnapshotOn p.Comments trigger
                             |> Doc.BindView (List.map (buildComment book p) >> Doc.Concat) ] ] :> Doc
 
-    let buildBook book =
+    let buildBook trigger book =
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ]
                           [ label [ text "Title" ]
@@ -173,7 +174,8 @@ module Builder =
                                 |> Doc.Concat)
                 
                             (Book.LensPages book).View
-                            |> Doc.BindView (List.map (buildPage book) >> Doc.Concat) ] ]
+                            |> View.SnapshotOn (book.Get().Pages) trigger
+                            |> Doc.BindView (List.map (buildPage trigger book) >> Doc.Concat) ] ]
 
 [<JavaScript>]
 module Client =
@@ -182,6 +184,9 @@ module Client =
     open Builder
 
     let main() =
+        let trigger =
+            Var.Create ()
+        
         let book = 
             Var.Create { Title = "New Book"
                          Pages = [] }
@@ -196,10 +201,17 @@ module Client =
                          [ text "Book - Live preview" ]
                   divAttr [ attr.``class`` "row" ]
                           [ divAttr [ attr.``class`` "col-xs-6" ]
-                                    [ buildBook book |> container ]
+                                    [ [ Doc.Button "Generate" [ attr.``class`` "btn btn-primary" ] (Var.Set trigger)
+                                        buildBook trigger.View book ]
+                                      |> Seq.cast
+                                      |> Doc.Concat
+                                      |> container ]
                             
                             divAttr [ attr.``class`` "col-xs-6" ]
-                                    [ book.View |> Doc.BindView Book.Render |> container ] ] ]
+                                    [ book.View 
+                                      |> View.SnapshotOn book.Value trigger.View
+                                      |> Doc.BindView Book.Render 
+                                      |> container ] ] ]
 
 module Server =
 

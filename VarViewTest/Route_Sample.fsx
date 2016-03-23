@@ -12,7 +12,7 @@ open WebSharper.UI.Next.Client
 module Client =
     
     type DesignerEndpoint =
-        | Forms
+        | Default
         | Form     of formId: string
         | Sections of formId: string
         | Section  of formId: string * sectionId: string
@@ -21,16 +21,15 @@ module Client =
         let map =
             RouteMap.Create 
                 (function
-                 | Forms                       -> [ "forms" ]
                  | Form formId                 -> [ "forms"; formId ]
                  | Sections formId             -> [ "forms"; formId; "sections" ]
-                 | Section (formId, sectionId) -> [ "forms"; formId; "sections"; sectionId ]) 
+                 | Section (formId, sectionId) -> [ "forms"; formId; "sections"; sectionId ]
+                 | Default                     -> [ "" ]) 
                 (function
-                 | [ "forms" ]                                -> Forms
                  | [ "forms"; formId ]                        -> Form formId
                  | [ "forms"; formId; "sections" ]            -> Sections formId
                  | [ "forms"; formId; "sections"; sectionId ] -> Section (formId, sectionId)
-                 | _                                          -> Forms)
+                 | _                                          -> Default)
         
         let route =
             RouteMap.Install map
@@ -40,10 +39,10 @@ module Client =
           
           route.View
           |> Doc.BindView (function 
-                           | Forms                       -> Doc.Empty
                            | Form formId                 -> Doc.Empty
                            | Sections formId             -> Doc.Empty
-                           | Section (formId, sectionId) -> Doc.Empty) ]
+                           | Section (formId, sectionId) -> Doc.Empty
+                           | Default                     -> Doc.Empty) ]
         |> Doc.Concat
 
 

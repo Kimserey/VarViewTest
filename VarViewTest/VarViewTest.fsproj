@@ -44,12 +44,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Book_Sample_v1.fsx" />
-    <None Include="Book_Sample_v2_Lens.fsx" />
+    <None Include="Book_Sample_v3_ListModel.fsx" />
     <None Include="Build.cmd" />
     <None Include="SimpleTodo_WithSubItems.fsx" />
     <None Include="index.html" />
     <None Include="SimpleTodo_WithListModel.fsx" />
     <None Include="Route_Sample.fsx" />
+    <None Include="Book_Sample_v2_Lens.fsx" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

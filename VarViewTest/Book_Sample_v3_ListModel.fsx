@@ -28,15 +28,15 @@ module Model =
         Content: string
         Comments: ListModel<int, Comment>
     } with
-        static member LensIntoContent n (v: Book) : IRef<string> =
-            v.Pages.LensInto (fun p -> p.Content) (fun p c -> { p with Content = c }) n
+        static member LensIntoContent n (pages: ListModel<int, Page>) : IRef<string> =
+            pages.LensInto (fun p -> p.Content) (fun p c -> { p with Content = c }) n
     
     and Comment = {
         Number: int
         Content: string
     } with
-        static member LensIntoContent n (v: Page) : IRef<string> =
-            v.Comments.LensInto (fun c -> c.Content) (fun c c' -> { c with Content = c' }) n
+        static member LensIntoContent n (comments: ListModel<int, Comment>) : IRef<string> =
+            comments.LensInto (fun c -> c.Content) (fun c c' -> { c with Content = c' }) n
 
 [<JavaScript>]
 module Render =
@@ -69,11 +69,12 @@ module Render =
                   |> Doc.BindSeqCached Comment.Render]
 
     type Book with
-        static member Render title pages =
-            div [ Doc.BindView (fun title -> text ("title: " + title)) title; br []
-                  text "pages: "; br []
-
-                  pages
+        static member Render book =
+            div [ text ("title: " + book.Title)
+                  br []
+                  text "pages: "
+                  br []
+                  book.Pages.View
                   |> Doc.BindSeqCached Page.Render ]
 
 [<JavaScript>]
@@ -84,7 +85,7 @@ module Builder =
         let t = Var.Create ()
         Var.Set t, t.View
 
-    let buildComment book (p: Page) (c: Comment) =
+    let buildComment (comments: ListModel<int, Comment>) (c: Comment) =
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ] 
                           [ label [ text "Number" ]
@@ -94,9 +95,9 @@ module Builder =
 
                   divAttr [ attr.``class`` "form-group" ] 
                             [ label [ text "Content" ]
-                              Doc.Input [ attr.``class`` "form-control" ]  (Comment.LensIntoContent c.Number p) ] ] :> Doc
+                              Doc.Input [ attr.``class`` "form-control" ]  (Comment.LensIntoContent c.Number comments) ] ] :> Doc
 
-    let buildPage book (p: Page) =   
+    let buildPage (pages: ListModel<int, Page>) (p: Page) =   
     
         let (refresh, view) =
             makeTrigger()
@@ -111,7 +112,7 @@ module Builder =
                   divAttr [ attr.``class`` "form-group" ] 
                           [ label [ text "Content" ]
                             Doc.Input [ attr.``class`` "form-control" ] 
-                                      (Page.LensIntoContent p.Number book) ]
+                                      (Page.LensIntoContent p.Number pages) ]
 
                   divAttr [ attr.``class`` "form-group" ] 
                           [ label [ text "Comments" ]
@@ -133,38 +134,34 @@ module Builder =
                                
                             p.Comments.View
                             |> View.SnapshotOn p.Comments.Value view
-                            |> Doc.BindSeqCached (buildComment book p) ] ] :> Doc
+                            |> Doc.BindSeqCached (buildComment p.Comments) ] ] :> Doc
 
-    let buildBook title (book: Book) =
+    let buildPages (pages: ListModel<int, Page>) =
 
         let (refresh, view) =
             makeTrigger()
-
-        divAttr [ attr.``class`` "well" ]
-                [ divAttr [ attr.``class`` "form-group" ]
-                          [ label [ text "Title" ]
-                            Doc.Input [ attr.``class`` "form-control" ] title ]
-                  divAttr [ attr.``class`` "form-group" ] 
-                          [ label [ text "Pages" ]
+  
+        divAttr [ attr.``class`` "form-group" ] 
+                [ label [ text "Pages" ]
                             
-                            book.Pages.LengthAsView
-                            |> Doc.BindView (fun l ->
-                                [ Doc.Button "-" 
-                                             [ attr.``class`` "btn btn-default" ] 
-                                             (fun () -> 
-                                                if l >= 0 then
-                                                    book.Pages.RemoveByKey (l - 1)
-                                                    refresh()) :> Doc
-                                  Doc.Button "+" 
-                                             [ attr.``class`` "btn btn-default" ] 
-                                             (fun () -> 
-                                                book.Pages.Add { Number = l; Content = ""; Comments = ListModel.Create (fun c -> c.Number) [] }
-                                                refresh()) :> Doc ]
-                                |> Doc.Concat)
-                
-                            book.Pages.View
-                            |> View.SnapshotOn book.Pages.Value view
-                            |> Doc.BindSeqCached (buildPage book) ] ]
+                  pages.LengthAsView
+                  |> Doc.BindView (fun l ->
+                      [ Doc.Button "-" 
+                                   [ attr.``class`` "btn btn-default" ] 
+                                   (fun () -> 
+                                      if l >= 0 then
+                                          pages.RemoveByKey (l - 1)
+                                          refresh()) :> Doc
+                        Doc.Button "+" 
+                                   [ attr.``class`` "btn btn-default" ] 
+                                   (fun () -> 
+                                      pages.Add { Number = l; Content = ""; Comments = ListModel.Create (fun c -> c.Number) [] }
+                                      refresh()) :> Doc ]
+                      |> Doc.Concat)
+                  
+                  pages.View
+                  |> View.SnapshotOn pages.Value view
+                  |> Doc.BindSeqCached (buildPage pages) ]
 
 [<JavaScript>]
 module Client =
@@ -174,11 +171,9 @@ module Client =
 
     let main() =
         
-        let book = 
-            { Title = "New Book"
-              Pages = ListModel.Create (fun p -> p.Number) [] }
-
         let title = Var.Create "New book"
+        let pages: ListModel<int, Page> = ListModel.Create (fun p -> p.Number) []
+        let bookView = View.Map (fun t -> { Title = t; Pages = pages }) title.View
 
         let container content =
             divAttr [ attr.style "position:fixed; height: 85%; width: 48%; top: 10%; overflow-y: scroll;"
@@ -190,15 +185,20 @@ module Client =
                          [ text "Book - Live preview" ]
                   divAttr [ attr.``class`` "row" ]
                           [ divAttr [ attr.``class`` "col-xs-6" ]
-                                    [ [ buildBook title book ]
-                                      |> Seq.cast
-                                      |> Doc.Concat
+                                    [ divAttr [ attr.``class`` "well" ]
+                                              [ divAttr [ attr.``class`` "form-group" ]
+                                                        [ label [ text "Title" ]
+                                                          Doc.Input [ attr.``class`` "form-control" ] title ]
+                                    
+                                                buildPages pages ]
                                       |> container ]
                             
                             divAttr [ attr.``class`` "col-xs-6" ]
-                                    [ (title.View, book.Pages.View)
-                                      ||> Book.Render
-                                      |> container ] ] ]
+                                    [ bookView
+                                      |> Doc.BindView(fun book ->
+                                        book
+                                        |> Book.Render
+                                        |> container) ] ] ]
 
 module Server =
 

@@ -10,6 +10,7 @@ open WebSharper.UI.Next.Client
 
 (*
     Starting to refactor using Lens
+    using ListModel instead of List
 *)
 
 [<JavaScript>]

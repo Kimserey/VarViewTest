@@ -78,6 +78,10 @@ module Render =
 [<JavaScript>]
 module Builder =
     open Model
+    
+    let makeTrigger() = 
+        let t = Var.Create ()
+        Var.Set t, t.View
 
     let buildComment book (p: Page) (c: Comment) =
         divAttr [ attr.``class`` "well" ]
@@ -91,7 +95,11 @@ module Builder =
                             [ label [ text "Content" ]
                               Doc.Input [ attr.``class`` "form-control" ]  (Comment.LensIntoContent c.Number p) ] ] :> Doc
 
-    let buildPage (trigger: Var<unit>) book (p: Page) =   
+    let buildPage book (p: Page) =   
+    
+        let (refresh, view) =
+            makeTrigger()
+
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ] 
                           [ label [ text "Number" ]
@@ -114,19 +122,23 @@ module Builder =
                                              (fun () -> 
                                                 if l >= 0 then
                                                     p.Comments.RemoveByKey(l - 1)
-                                                    Var.Set trigger ()) :> Doc
+                                                    refresh()) :> Doc
                                   Doc.Button "+" 
                                              [ attr.``class`` "btn btn-default" ] 
                                              (fun () -> 
                                                 p.Comments.Add { Number = l; Content = "" }
-                                                Var.Set trigger ()) :> Doc ]
+                                                refresh()) :> Doc ]
                                 |> Doc.Concat)
                                
                             p.Comments.View
-                            |> View.SnapshotOn p.Comments.Value trigger.View
+                            |> View.SnapshotOn p.Comments.Value view
                             |> Doc.BindSeqCached (buildComment book p) ] ] :> Doc
 
-    let buildBook (trigger: Var<unit>) title (book: Book) =
+    let buildBook title (book: Book) =
+
+        let (refresh, view) =
+            makeTrigger()
+
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ]
                           [ label [ text "Title" ]
@@ -141,17 +153,17 @@ module Builder =
                                              (fun () -> 
                                                 if l >= 0 then
                                                     book.Pages.RemoveByKey (l - 1)
-                                                    Var.Set trigger ()) :> Doc
+                                                    refresh()) :> Doc
                                   Doc.Button "+" 
                                              [ attr.``class`` "btn btn-default" ] 
                                              (fun () -> 
                                                 book.Pages.Add { Number = l; Content = ""; Comments = ListModel.Create (fun c -> c.Number) [] }
-                                                Var.Set trigger ()) :> Doc ]
+                                                refresh()) :> Doc ]
                                 |> Doc.Concat)
                 
                             book.Pages.View
-                            |> View.SnapshotOn book.Pages.Value trigger.View
-                            |> Doc.BindSeqCached (buildPage trigger book) ] ]
+                            |> View.SnapshotOn book.Pages.Value view
+                            |> Doc.BindSeqCached (buildPage book) ] ]
 
 [<JavaScript>]
 module Client =
@@ -160,10 +172,10 @@ module Client =
     open Builder
 
     let main() =
-        let trigger = Var.Create ()
-
-        let book = { Title = "New Book"
-                     Pages = ListModel.Create (fun p -> p.Number) [] }
+        
+        let book = 
+            { Title = "New Book"
+              Pages = ListModel.Create (fun p -> p.Number) [] }
 
         let title = Var.Create "New book"
 
@@ -177,7 +189,7 @@ module Client =
                          [ text "Book - Live preview" ]
                   divAttr [ attr.``class`` "row" ]
                           [ divAttr [ attr.``class`` "col-xs-6" ]
-                                    [ [ buildBook trigger title book ]
+                                    [ [ buildBook title book ]
                                       |> Seq.cast
                                       |> Doc.Concat
                                       |> container ]

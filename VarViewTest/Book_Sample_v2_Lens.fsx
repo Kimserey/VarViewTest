@@ -108,6 +108,10 @@ module Render =
 [<JavaScript>]
 module Builder =
     open Model
+    
+    let makeTrigger() = 
+        let t = Var.Create ()
+        Var.Set t, t.View
 
     let buildComment book (p: Page) (c: Comment) =
         divAttr [ attr.``class`` "well" ]
@@ -127,7 +131,11 @@ module Builder =
                                  |> Page.LensComment c.Number 
                                  |> Comment.LensContent) ] ] :> Doc
 
-    let buildPage trigger book (p: Page) =   
+    let buildPage book (p: Page) =   
+        
+        let (refresh, view) =
+            makeTrigger()
+
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ] 
                             [ label [ text "Number" ]
@@ -142,19 +150,28 @@ module Builder =
                             |> Doc.BindView (fun comms ->
                                 [ Doc.Button "-"
                                     [ attr.``class`` "btn btn-default" ] 
-                                    (fun () -> if comms.Length >= 0 then (Book.LensPage p.Number book |> Page.LensComments).Set (comms.[0..comms.Length - 2])) :> Doc
+                                    (fun () -> 
+                                        if comms.Length >= 0 then 
+                                            (Book.LensPage p.Number book |> Page.LensComments).Set (comms.[0..comms.Length - 2])
+                                            refresh()) :> Doc
                                                                 
                                   Doc.Button "+" 
                                     [ attr.``class`` "btn btn-default" ] 
-                                    (fun () -> (Book.LensPage p.Number book |> Page.LensComments).Set (comms @ [ { Number = comms.Length; Content = "" } ])) :> Doc ]
+                                    (fun () -> 
+                                        (Book.LensPage p.Number book |> Page.LensComments).Set (comms @ [ { Number = comms.Length; Content = "" } ])
+                                        refresh()) :> Doc ]
                                 |> Doc.Concat)
                                
                             (Book.LensPage p.Number book
                              |> Page.LensComments).View
-                            |> View.SnapshotOn p.Comments trigger
+                            |> View.SnapshotOn p.Comments view
                             |> Doc.BindView (List.map (buildComment book p) >> Doc.Concat) ] ] :> Doc
 
-    let buildBook trigger book =
+    let buildBook book =
+
+        let (refresh, view) = 
+            makeTrigger()
+
         divAttr [ attr.``class`` "well" ]
                 [ divAttr [ attr.``class`` "form-group" ]
                           [ label [ text "Title" ]
@@ -166,16 +183,21 @@ module Builder =
                             |> Doc.BindView (fun pages ->
                                 [ Doc.Button "-"
                                      [ attr.``class`` "btn btn-default" ] 
-                                     (fun () -> if pages.Length >= 0 then (Book.LensPages book).Set (pages.[0..pages.Length - 2])) :> Doc
+                                     (fun () -> 
+                                        if pages.Length >= 0 then 
+                                            (Book.LensPages book).Set (pages.[0..pages.Length - 2])
+                                            refresh()) :> Doc
                                   
                                   Doc.Button "+" 
                                      [ attr.``class`` "btn btn-default" ] 
-                                     (fun () -> (Book.LensPages book).Set (pages @ [ { Number = pages.Length; Content = ""; Comments = [] } ])) :> Doc ]
+                                     (fun () -> 
+                                        (Book.LensPages book).Set (pages @ [ { Number = pages.Length; Content = ""; Comments = [] } ])
+                                        refresh()) :> Doc ]
                                 |> Doc.Concat)
                 
                             (Book.LensPages book).View
-                            |> View.SnapshotOn (book.Get().Pages) trigger
-                            |> Doc.BindView (List.map (buildPage trigger book) >> Doc.Concat) ] ]
+                            |> View.SnapshotOn (book.Get().Pages) view
+                            |> Doc.BindView (List.map (buildPage book) >> Doc.Concat) ] ]
 
 [<JavaScript>]
 module Client =
@@ -201,15 +223,13 @@ module Client =
                          [ text "Book - Live preview" ]
                   divAttr [ attr.``class`` "row" ]
                           [ divAttr [ attr.``class`` "col-xs-6" ]
-                                    [ [ Doc.Button "Generate" [ attr.``class`` "btn btn-primary" ] (Var.Set trigger)
-                                        buildBook trigger.View book ]
+                                    [ [ buildBook book ]
                                       |> Seq.cast
                                       |> Doc.Concat
                                       |> container ]
                             
                             divAttr [ attr.``class`` "col-xs-6" ]
                                     [ book.View 
-                                      |> View.SnapshotOn book.Value trigger.View
                                       |> Doc.BindView Book.Render 
                                       |> container ] ] ]
 

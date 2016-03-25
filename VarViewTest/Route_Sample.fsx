@@ -21,12 +21,12 @@ module Client =
         let map =
             RouteMap.Create 
                 (function
-                 | Form formId                 -> [ "forms"; formId ]
+                 | Form formId                 -> JS.Alert "endpoint -> string []"; [ "forms"; formId ]
                  | Sections formId             -> [ "forms"; formId; "sections" ]
                  | Section (formId, sectionId) -> [ "forms"; formId; "sections"; sectionId ]
                  | Default                     -> [ "" ]) 
                 (function
-                 | [ "forms"; formId ]                        -> Form formId
+                 | [ "forms"; formId ]                        -> JS.Alert "string [] -> endpoint"; Form formId
                  | [ "forms"; formId; "sections" ]            -> Sections formId
                  | [ "forms"; formId; "sections"; sectionId ] -> Section (formId, sectionId)
                  | _                                          -> Default)

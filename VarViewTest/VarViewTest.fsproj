@@ -51,6 +51,7 @@
     <None Include="index.html" />
     <None Include="SimpleTodo_WithListModel.fsx" />
     <None Include="Route_Sample.fsx" />
+    <None Include="ListModel_DU.fsx" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -28,9 +28,28 @@ module Client =
                   Dog ("cupcake", 1)
                   Cat "muffin" ]
          
-         listModel.len
+        let cupcakeOwnerRef =
+            listModel.LensInto 
+                (function 
+                 | Dog ("cupcake", owner) -> owner 
+                 | _ -> failwith "Supposed to ref cupcake") 
+                (fun p v -> 
+                    match p with
+                    | Dog ("cupcake", _) -> Dog ("cupcake", v) 
+                    | _ -> failwith "Supposed to ref cupcake") 
+                "cupcake"
 
-        Doc.Empty
+        div 
+            [ listModel.View
+              |> Doc.BindSeqCached(
+                    function
+                    | Dog (key, owner) ->
+                        div [ text key; br[]; text (string owner) ]
+                    | Cat key ->
+                        div [ text key ])
+              br[]
+              Doc.IntInputUnchecked [] cupcakeOwnerRef ]
+
 
 module Server =
 
